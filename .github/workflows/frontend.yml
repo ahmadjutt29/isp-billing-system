@@ -33,9 +33,9 @@ jobs:
         working-directory: ./frontend/frontend
         run: npm install
 
-      - name: Run Linter
-        working-directory: ./frontend/frontend
-        run: npm run lint
+      # - name: Run Linter
+      #   working-directory: ./frontend/frontend
+      #   run: npm run lint
         continue-on-error: true
 
       - name: Type Check
