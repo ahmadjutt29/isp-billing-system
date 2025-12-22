@@ -30,12 +30,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: ./frontend/frontend
-        run: npm ci
+        run: npm install
 
       - name: Run linter
         working-directory: ./frontend/frontend
