@@ -1,17 +1,10 @@
 name: Frontend CI/CD (Local Deployment)
 
 on:
-  push:
-    branches: [develop, main, master]
-    paths:
-      - 'frontend/frontend/**'
-      - '.github/workflows/frontend-ci-cd.yml'
-  pull_request:
-    branches: [develop, main, master]
-    paths:
-      - 'frontend/frontend/**'
-      - '.github/workflows/frontend-ci-cd.yml'
-
+   push:
+     branches: [develop, main, master]
+   pull_request:
+     branches: [develop, main, master]
 env:
   NODE_VERSION: '20'
 
