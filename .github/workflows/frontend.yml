@@ -16,8 +16,8 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  ci:
-    name: Build & Test
+  ci-deploy:
+    name: Build & Deploy React Locally
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20'
 
       - name: Install dependencies
         working-directory: ./frontend/frontend
@@ -39,12 +39,27 @@ jobs:
         working-directory: ./frontend/frontend
         run: npm run build
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/frontend/build
-          retention-days: 7
+      - name: Deploy to Staging
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          mkdir -p ~/react-app/staging/backups
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          if [ -d ~/react-app/staging/current ]; then
+            mv ~/react-app/staging/current ~/react-app/staging/backups/$TIMESTAMP
+          fi
+          cp -r ./frontend/frontend/build ~/react-app/staging/current
+          echo "✅ Staging deployed. Run: serve -s ~/react-app/staging/current -l 8081"
+
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          mkdir -p ~/react-app/production/backups
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          if [ -d ~/react-app/production/current ]; then
+            mv ~/react-app/production/current ~/react-app/production/backups/$TIMESTAMP
+          fi
+          cp -r ./frontend/frontend/build ~/react-app/production/current
+          echo "✅ Production deployed. Run: serve -s ~/react-app/production/current -l 8082"
 
   docker-build:
     name: Build Docker Image (Optional)
@@ -85,55 +100,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  deploy-staging:
-    name: Deploy to Local Staging
-    runs-on: self-hosted
-    needs: docker-build
-    if: github.ref == 'refs/heads/develop'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: ./frontend-build
-
-      - name: Deploy to Local Staging
-        run: |
-          mkdir -p ~/react-app/staging/backups
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          if [ -d ~/react-app/staging/current ]; then
-            echo "Backing up previous staging build..."
-            mv ~/react-app/staging/current ~/react-app/staging/backups/$TIMESTAMP
-          fi
-          cp -r ./frontend-build ~/react-app/staging/current
-          echo "✅ Staging deployment complete."
-          echo "Run: serve -s ~/react-app/staging/current -l 8081"
-
-  deploy-production:
-    name: Deploy to Local Production
-    runs-on: self-hosted
-    needs: docker-build
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: ./frontend-build
-
-      - name: Deploy to Local Production
-        run: |
-          mkdir -p ~/react-app/production/backups
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          if [ -d ~/react-app/production/current ]; then
-            echo "Backing up previous production build..."
-            mv ~/react-app/production/current ~/react-app/production/backups/$TIMESTAMP
-          fi
-          cp -r ./frontend-build ~/react-app/production/current
-          echo "✅ Production deployment complete."
-          echo "Run: serve -s ~/react-app/production/current -l 8082"
