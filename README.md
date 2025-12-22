@@ -1,4 +1,4 @@
-# ISP Billing System 🚀 (staging test)
+# ISP Billing System 🚀 (main branch test)
 
 A full-stack ISP (Internet Service Provider) billing system with .NET 8 backend and React TypeScript frontend.
 
