@@ -41,7 +41,7 @@ jobs:
             echo "Backing up previous staging build..."
             mv ~/react-app/staging/current ~/react-app/staging/backups/$TIMESTAMP
           fi
-          cp -r ./frontend/frontend/build ~/react-app/staging/current
+          cp -r ./frontend/frontend/dist ~/react-app/staging/current
           echo "✅ Staging deployed."
           echo "Run: serve -s ~/react-app/staging/current -l 8081"
 
@@ -54,7 +54,7 @@ jobs:
             echo "Backing up previous production build..."
             mv ~/react-app/production/current ~/react-app/production/backups/$TIMESTAMP
           fi
-          cp -r ./frontend/frontend/build ~/react-app/production/current
+          cp -r ./frontend/frontend/dist ~/react-app/production/current
           echo "✅ Production deployed."
           echo "Run: serve -s ~/react-app/production/current -l 8082"
 
