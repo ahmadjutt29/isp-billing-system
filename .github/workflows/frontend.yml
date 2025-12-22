@@ -33,10 +33,7 @@ jobs:
         working-directory: ./frontend/frontend
         run: npm install
 
-      # - name: Run Linter
-      #   working-directory: ./frontend/frontend
-      #   run: npm run lint
-      
+
       - name: Type Check
         working-directory: ./frontend/frontend
         run: npx tsc --noEmit
