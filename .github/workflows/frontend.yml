@@ -41,14 +41,14 @@ jobs:
       - name: Build
         working-directory: ./frontend/frontend
         run: npm run build
-
+        
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: frontend/frontend/dist
+          path: frontend/frontend/build
           retention-days: 7
-
+          
   docker-build:
     name: Build Docker Image (Optional)
     runs-on: ubuntu-latest
