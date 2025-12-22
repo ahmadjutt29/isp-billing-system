@@ -1,4 +1,4 @@
-# ISP Billing System
+# ISP Billing System 🚀
 
 A full-stack ISP (Internet Service Provider) billing system with .NET 8 backend and React TypeScript frontend.
 
