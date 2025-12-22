@@ -1,16 +1,16 @@
-name: Frontend CI/CD
+name: Frontend CI/CD (Local Deployment)
 
 on:
   push:
-    branches: [main, master]
+    branches: [develop, main, master]
     paths:
       - 'frontend/frontend/**'
-      - '.github/workflows/frontend.yml'
+      - '.github/workflows/frontend-ci-cd.yml'
   pull_request:
-    branches: [main, master]
+    branches: [develop, main, master]
     paths:
       - 'frontend/frontend/**'
-      - '.github/workflows/frontend.yml'
+      - '.github/workflows/frontend-ci-cd.yml'
 
 env:
   NODE_VERSION: '20'
@@ -18,13 +18,11 @@ env:
   IMAGE_NAME: ${{ github.repository }}/frontend
 
 jobs:
-  build-and-lint:
-    name: Build & Lint
+  ci:
+    name: Build & Test
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -33,23 +31,21 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./frontend/frontend
-        run: npm install
+        run: npm ci
 
-      - name: Run linter
+      - name: Run Linter
         working-directory: ./frontend/frontend
         run: npm run lint
-        continue-on-error: true
 
-      - name: Type check
+      - name: Type Check
         working-directory: ./frontend/frontend
         run: npx tsc --noEmit
-        continue-on-error: true
 
       - name: Build
         working-directory: ./frontend/frontend
         run: npm run build
 
-      - name: Upload build artifacts
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
@@ -57,30 +53,25 @@ jobs:
           retention-days: 7
 
   docker-build:
-    name: Build Docker Image
+    name: Build Docker Image (Optional)
     runs-on: ubuntu-latest
-    needs: build-and-lint
+    needs: ci
     if: github.event_name == 'push'
-    
     permissions:
       contents: read
       packages: write
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract Metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -90,7 +81,7 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build & Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: ./frontend/frontend
@@ -101,20 +92,52 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
-    name: Deploy (Optional)
+  deploy-staging:
+    name: Deploy to Local Staging
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ./frontend-build
+
+      - name: Deploy to Local Staging
+        run: |
+          mkdir -p ~/react-app/staging/backups
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          if [ -d ~/react-app/staging/current ]; then
+            mv ~/react-app/staging/current ~/react-app/staging/backups/$TIMESTAMP
+          fi
+          cp -r ./frontend-build ~/react-app/staging/current
+          echo "✅ Staging deployment complete. Run 'serve ~/react-app/staging/current -l 8081' to test."
+
+  deploy-production:
+    name: Deploy to Local Production
     runs-on: ubuntu-latest
     needs: docker-build
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    environment: production
-    
+
     steps:
-      - name: Deployment placeholder
+      - uses: actions/checkout@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ./frontend-build
+
+      - name: Deploy to Local Production
         run: |
-          echo "🚀 Frontend deployment would happen here"
-          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          echo ""
-          echo "To deploy, you can:"
-          echo "1. Deploy to Vercel, Netlify, or GitHub Pages"
-          echo "2. Use cloud provider actions (AWS S3, Azure Static Web Apps)"
-          echo "3. Deploy Docker image to your server"
+          mkdir -p ~/react-app/production/backups
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          if [ -d ~/react-app/production/current ]; then
+            mv ~/react-app/production/current ~/react-app/production/backups/$TIMESTAMP
+          fi
+          cp -r ./frontend-build ~/react-app/production/current
+          echo "✅ Production deployment complete. Run 'serve ~/react-app/production/current -l 8082' to test."
