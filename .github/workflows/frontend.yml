@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
         working-directory: ./frontend/frontend
@@ -35,7 +35,7 @@ jobs:
         working-directory: ./frontend/frontend
         run: npx tsc --noEmit
 
-      - name: Build
+      - name: Build React App
         working-directory: ./frontend/frontend
         run: npm run build
 
@@ -45,10 +45,12 @@ jobs:
           mkdir -p ~/react-app/staging/backups
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           if [ -d ~/react-app/staging/current ]; then
+            echo "Backing up previous staging build..."
             mv ~/react-app/staging/current ~/react-app/staging/backups/$TIMESTAMP
           fi
           cp -r ./frontend/frontend/build ~/react-app/staging/current
-          echo "✅ Staging deployed. Run: serve -s ~/react-app/staging/current -l 8081"
+          echo "✅ Staging deployed."
+          echo "Run: serve -s ~/react-app/staging/current -l 8081"
 
       - name: Deploy to Production
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -56,15 +58,17 @@ jobs:
           mkdir -p ~/react-app/production/backups
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           if [ -d ~/react-app/production/current ]; then
+            echo "Backing up previous production build..."
             mv ~/react-app/production/current ~/react-app/production/backups/$TIMESTAMP
           fi
           cp -r ./frontend/frontend/build ~/react-app/production/current
-          echo "✅ Production deployed. Run: serve -s ~/react-app/production/current -l 8082"
+          echo "✅ Production deployed."
+          echo "Run: serve -s ~/react-app/production/current -l 8082"
 
   docker-build:
     name: Build Docker Image (Optional)
     runs-on: self-hosted
-    needs: ci
+    needs: ci-deploy
     if: github.event_name == 'push'
     permissions:
       contents: read
