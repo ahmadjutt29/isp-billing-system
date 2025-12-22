@@ -14,13 +14,11 @@ on:
 
 env:
   NODE_VERSION: '20'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/frontend
 
 jobs:
   ci:
     name: Build & Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +31,6 @@ jobs:
         working-directory: ./frontend/frontend
         run: npm install
 
-
       - name: Type Check
         working-directory: ./frontend/frontend
         run: npx tsc --noEmit
@@ -41,17 +38,17 @@ jobs:
       - name: Build
         working-directory: ./frontend/frontend
         run: npm run build
-        
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: frontend/frontend/build
           retention-days: 7
-          
+
   docker-build:
     name: Build Docker Image (Optional)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: ci
     if: github.event_name == 'push'
     permissions:
@@ -64,7 +61,7 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -72,7 +69,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ghcr.io/${{ github.repository }}/frontend
           tags: |
             type=ref,event=branch
             type=sha,prefix=
@@ -91,10 +88,9 @@ jobs:
 
   deploy-staging:
     name: Deploy to Local Staging
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: docker-build
     if: github.ref == 'refs/heads/develop'
-
     steps:
       - uses: actions/checkout@v4
 
@@ -109,17 +105,18 @@ jobs:
           mkdir -p ~/react-app/staging/backups
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           if [ -d ~/react-app/staging/current ]; then
+            echo "Backing up previous staging build..."
             mv ~/react-app/staging/current ~/react-app/staging/backups/$TIMESTAMP
           fi
           cp -r ./frontend-build ~/react-app/staging/current
-          echo "✅ Staging deployment complete. Run 'serve ~/react-app/staging/current -l 8081' to test."
+          echo "✅ Staging deployment complete."
+          echo "Run: serve -s ~/react-app/staging/current -l 8081"
 
   deploy-production:
     name: Deploy to Local Production
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: docker-build
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-
     steps:
       - uses: actions/checkout@v4
 
@@ -134,7 +131,9 @@ jobs:
           mkdir -p ~/react-app/production/backups
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
           if [ -d ~/react-app/production/current ]; then
+            echo "Backing up previous production build..."
             mv ~/react-app/production/current ~/react-app/production/backups/$TIMESTAMP
           fi
           cp -r ./frontend-build ~/react-app/production/current
-          echo "✅ Production deployment complete. Run 'serve ~/react-app/production/current -l 8082' to test."
+          echo "✅ Production deployment complete."
+          echo "Run: serve -s ~/react-app/production/current -l 8082"
