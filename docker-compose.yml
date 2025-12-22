@@ -1,0 +1,65 @@
+services:
+  # MySQL Database
+  db:
+    image: mysql:8
+    container_name: isp-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ispdb
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - isp-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # .NET Backend API
+  backend:
+    build:
+      context: ./IspBackend
+      dockerfile: Dockerfile
+    container_name: isp-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=Server=db;Port=3306;Database=ispdb;User=root;Password=root;
+      - Jwt__SecretKey=SuperSecretKey123456789012345678901234567890
+      - Jwt__Issuer=IspBackend
+      - Jwt__Audience=IspFrontend
+    ports:
+      - "5000:5000"
+    networks:
+      - isp-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend/frontend
+      dockerfile: Dockerfile
+    container_name: isp-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - isp-network
+
+networks:
+  isp-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
