@@ -41,6 +41,12 @@ services:
       - "5000:5000"
     networks:
       - isp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/weatherforecast" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   # React Frontend
   frontend:
@@ -55,6 +61,12 @@ services:
       - "80:80"
     networks:
       - isp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 networks:
   isp-network:

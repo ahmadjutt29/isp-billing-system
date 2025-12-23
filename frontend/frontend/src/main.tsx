@@ -13,9 +13,14 @@ interface JwtPayload {
   'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'?: string;
 }
 
+// Helper to get token from either localStorage or sessionStorage
+const getToken = (): string | null => {
+  return localStorage.getItem('token') || sessionStorage.getItem('token');
+};
+
 // Check if user is authenticated
 const isAuthenticated = (): boolean => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (!token) return false;
 
   try {
@@ -23,18 +28,20 @@ const isAuthenticated = (): boolean => {
     // Check if token is expired
     if (decoded.exp * 1000 < Date.now()) {
       localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
       return false;
     }
     return true;
   } catch {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     return false;
   }
 };
 
 // Get user role from token
 const getUserRole = (): string | null => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (!token) return null;
 
   try {
