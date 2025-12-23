@@ -9,7 +9,7 @@ interface LoginResponse {
   token: string;
   username: string;
   role: string;
-  expiresAt: string;
+  expiration: string;
 }
 
 interface JwtPayload {
@@ -176,7 +176,7 @@ const Login = () => {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={() => setRememberMe((v) => !v)}
-                style={styles.checkbox}
+                style={{ ...styles.checkbox, accentColor: '#22c55e' }} // Green color
               />
               Remember me
             </label>
