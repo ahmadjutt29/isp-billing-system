@@ -180,7 +180,7 @@ const Login = () => {
               />
               Remember me
             </label>
-            <a href="#" style={styles.forgot} tabIndex={-1} aria-disabled="true">
+            <a href="#" style={{ ...styles.forgot, color: '#c52222ff' }} tabIndex={-1} aria-disabled="true">
               Forgot password?
             </a>
           </div>
