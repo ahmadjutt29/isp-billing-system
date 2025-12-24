@@ -35,6 +35,14 @@ const ClientDashboard = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // PayNow modal state
+  const [showPayNow, setShowPayNow] = useState(false);
+  const [payNowFeeId, setPayNowFeeId] = useState<number | null>(null);
+  const [transactionId, setTransactionId] = useState('');
+  const [payeeName, setPayeeName] = useState('');
+  const [payAmount, setPayAmount] = useState('');
+  const [payNowError, setPayNowError] = useState('');
+
   // Calculate summary
   const totalPaid = fees.filter((f) => f.paid).reduce((sum, f) => sum + f.amount, 0);
   const totalUnpaid = fees.filter((f) => !f.paid).reduce((sum, f) => sum + f.amount, 0);
@@ -53,16 +61,40 @@ const ClientDashboard = () => {
     }
   };
 
-  // Mark fee as paid
-  const handleMarkPaid = async (feeId: number) => {
+  // Open PayNow modal
+  const handlePayNowClick = (feeId: number) => {
+    setPayNowFeeId(feeId);
+    setShowPayNow(true);
+    setTransactionId('');
+    setPayeeName('');
+    setPayAmount('');
+    setPayNowError('');
+  };
+
+  // Client-side verify and submit
+  const handlePayNowSubmit = async () => {
+    if (!transactionId.trim() || !payeeName.trim() || !payAmount.trim()) {
+      setPayNowError('All fields are required.');
+      return;
+    }
+    if (isNaN(Number(payAmount)) || Number(payAmount) <= 0) {
+      setPayNowError('Amount must be a positive number.');
+      return;
+    }
     try {
       setLoading(true);
-      setError('');
-      await api.put(`/fees/${feeId}/pay`, {});
-      setSuccess('Payment recorded successfully!');
+      setPayNowError('');
+      // Send for approval (simulate by posting to /fees/{id}/pay-request)
+      await api.post(`/fees/${payNowFeeId}/pay-request`, {
+        transactionId,
+        payeeName,
+        amount: Number(payAmount),
+      });
+      setSuccess('Payment request submitted for approval!');
+      setShowPayNow(false);
       fetchMyFees();
     } catch (err) {
-      handleError(err, 'Failed to record payment');
+      setPayNowError('Failed to submit payment request.');
     } finally {
       setLoading(false);
     }
@@ -190,7 +222,7 @@ const ClientDashboard = () => {
                       <div style={styles.actionBtns}>
                         {!fee.paid && (
                           <button
-                            onClick={() => handleMarkPaid(fee.id)}
+                            onClick={() => handlePayNowClick(fee.id)}
                             style={styles.payBtn}
                             disabled={loading}
                           >
@@ -223,7 +255,23 @@ const ClientDashboard = () => {
           If you have any questions about your bills, please contact support.
         </p>
       </div>
-    </div>
+    {/* PayNow Modal */}
+    {showPayNow && (
+      <div style={styles.modalOverlay}>
+        <div style={styles.modal}>
+          <h3 style={styles.modalTitle}>Submit Payment Details</h3>
+          <div style={styles.modalField}><label>Transaction ID:</label><input value={transactionId} onChange={e => setTransactionId(e.target.value)} style={styles.modalInput} /></div>
+          <div style={styles.modalField}><label>Payee Name:</label><input value={payeeName} onChange={e => setPayeeName(e.target.value)} style={styles.modalInput} /></div>
+          <div style={styles.modalField}><label>Amount:</label><input value={payAmount} onChange={e => setPayAmount(e.target.value)} style={styles.modalInput} type="number" min="0" /></div>
+          {payNowError && <div style={styles.error}>{payNowError}</div>}
+          <div style={{display:'flex',gap:'1rem',marginTop:'1rem'}}>
+            <button style={styles.payBtn} onClick={handlePayNowSubmit} disabled={loading}>Submit</button>
+            <button style={styles.downloadBtn} onClick={()=>setShowPayNow(false)} disabled={loading}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
   );
 };
 
@@ -387,6 +435,44 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '0.875rem',
     color: '#0c4a6e',
     margin: '0.25rem 0',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(0,0,0,0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modal: {
+    background: '#fff',
+    borderRadius: '8px',
+    padding: '2rem',
+    minWidth: '320px',
+    boxShadow: '0 2px 16px rgba(0,0,0,0.2)',
+    maxWidth: '90vw',
+  },
+  modalTitle: {
+    fontSize: '1.1rem',
+    fontWeight: 'bold',
+    marginBottom: '1rem',
+    color: '#0369a1',
+  },
+  modalField: {
+    marginBottom: '1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.25rem',
+  },
+  modalInput: {
+    padding: '0.5rem',
+    borderRadius: '4px',
+    border: '1px solid #bae6fd',
+    fontSize: '1rem',
   },
 };
 
