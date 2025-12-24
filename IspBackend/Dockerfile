@@ -18,11 +18,12 @@ RUN dotnet publish "IspBackend.csproj" -c Release -o /app/publish /p:UseAppHost=
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Install fonts for PDF generation
+# Install fonts for PDF generation and curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     fontconfig \
     fonts-liberation \
     fonts-dejavu-core \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -f -v
 

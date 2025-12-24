@@ -7,11 +7,13 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// -----------------------
+// Configure Services
+// -----------------------
 
-// Configure MySQL with Entity Framework Core
+// MySQL with EF Core
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Server=localhost;Port=3306;Database=ispdb;User=root;Password=root;";
+    ?? "Server=db;Port=3306;Database=ispdb;User=root;Password=root;";
 
 var serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
 
@@ -33,14 +35,29 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }
 });
 
-// Register application services
+// Application services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFeeService, FeeService>();
 
+// Controllers
 builder.Services.AddControllers();
 
-// Configure JWT Authentication
-var jwtSecretKey = builder.Configuration["Jwt:SecretKey"] ?? "SuperSecretKey123456789012345678901234567890";
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// CORS for frontend communication
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy => policy.AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod());
+});
+
+// JWT Authentication
+var jwtSecretKey = builder.Configuration["Jwt:SecretKey"] 
+    ?? "SuperSecretKey123456789012345678901234567890";
 var key = Encoding.UTF8.GetBytes(jwtSecretKey);
 
 builder.Services.AddAuthentication(options =>
@@ -52,7 +69,7 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
     options.SaveToken = true;
-    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+    options.RequireHttpsMetadata = false; // Disable for Docker local
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
@@ -66,27 +83,33 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
+// -----------------------
+// Build App
+// -----------------------
 var app = builder.Build();
 
-// Apply pending migrations automatically
+// Apply pending migrations
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     dbContext.Database.Migrate();
 }
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// -----------------------
+// Middleware Pipeline
+// -----------------------
+app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+// Swagger always enabled
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ISP Backend API V1");
+    c.RoutePrefix = string.Empty; // Swagger at root
+});
+
+// HTTPS redirection disabled for Docker/local
+// app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
