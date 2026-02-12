@@ -71,7 +71,50 @@ interface CreateFeeForm {
 }
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'users' | 'fees' | 'reports'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'fees' | 'reports' | 'payrequests'>('users');
+    // Pay Requests state
+    type PayRequest = {
+      id: number;
+      feeId: number;
+      transactionId: string;
+      payeeName: string;
+      amount: number;
+      approved: boolean;
+      requestedAt: string;
+      approvedAt?: string;
+      user?: { id: number; username: string; email: string };
+      feeDescription?: string;
+      feePaid?: boolean;
+    };
+    const [payRequests, setPayRequests] = useState<PayRequest[]>([]);
+
+    // Fetch pay requests
+    const fetchPayRequests = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get<PayRequest[]>('/payrequests');
+        setPayRequests(response.data);
+      } catch (err) {
+        handleError(err, 'Failed to fetch payment requests');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Approve pay request
+    const handleApprovePayRequest = async (id: number) => {
+      try {
+        setLoading(true);
+        await api.post(`/payrequests/${id}/approve`);
+        setSuccess('Payment approved and fee marked as paid!');
+        fetchPayRequests();
+        fetchFees();
+      } catch (err) {
+        handleError(err, 'Failed to approve payment');
+      } finally {
+        setLoading(false);
+      }
+    };
   const [users, setUsers] = useState<User[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
   const [incomeSummary, setIncomeSummary] = useState<IncomeSummary | null>(null);
@@ -142,7 +185,15 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       setError('');
-      await api.post('/users', { ...userForm, role: 'Client' });
+      await api.post('/users', {
+        username: userForm.username,
+        password: userForm.password,
+        email: userForm.email,
+        firstName: userForm.firstName || null,
+        lastName: userForm.lastName || null,
+        phoneNumber: userForm.phoneNumber || null,
+        role: 'Client',
+      });
       setSuccess('User created successfully!');
       setUserForm({
         username: '',
@@ -248,8 +299,19 @@ const AdminDashboard = () => {
 
   // Error handler
   const handleError = (err: unknown, defaultMessage: string) => {
-    if (err instanceof AxiosError && err.response?.data?.message) {
-      setError(err.response.data.message);
+    if (err instanceof AxiosError && err.response?.data) {
+      const data = err.response.data;
+      if (data.message) {
+        setError(data.message);
+      } else if (data.errors) {
+        // Handle ASP.NET validation errors
+        const messages = Object.values(data.errors).flat().join(', ');
+        setError(messages || defaultMessage);
+      } else if (data.title) {
+        setError(data.title);
+      } else {
+        setError(defaultMessage);
+      }
     } else {
       setError(defaultMessage);
     }
@@ -275,11 +337,13 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (activeTab === 'users') fetchUsers();
     else if (activeTab === 'fees') {
-      fetchUsers(); // Need users for dropdown
+      fetchUsers();
       fetchFees();
     } else if (activeTab === 'reports') {
       fetchIncomeSummary();
       fetchFees();
+    } else if (activeTab === 'payrequests') {
+      fetchPayRequests();
     }
   }, [activeTab]);
 
@@ -306,12 +370,76 @@ const AdminDashboard = () => {
           Fees
         </button>
         <button
+          style={activeTab === 'payrequests' ? styles.activeTab : styles.tab}
+          onClick={() => setActiveTab('payrequests')}
+        >
+          Payment Requests
+        </button>
+        <button
           style={activeTab === 'reports' ? styles.activeTab : styles.tab}
           onClick={() => setActiveTab('reports')}
         >
           Reports
         </button>
       </div>
+      {/* Pay Requests Tab */}
+      {activeTab === 'payrequests' && (
+        <div style={styles.section}>
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>Payment Requests</h2>
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>ID</th>
+                    <th style={styles.th}>User</th>
+                    <th style={styles.th}>Fee Desc</th>
+                    <th style={styles.th}>Transaction ID</th>
+                    <th style={styles.th}>Payee Name</th>
+                    <th style={styles.th}>Amount</th>
+                    <th style={styles.th}>Requested At</th>
+                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payRequests.map((req) => (
+                    <tr key={req.id}>
+                      <td style={styles.td}>{req.id}</td>
+                      <td style={styles.td}>{req.user?.username || '-'}</td>
+                      <td style={styles.td}>{req.feeDescription || '-'}</td>
+                      <td style={styles.td}>{req.transactionId}</td>
+                      <td style={styles.td}>{req.payeeName}</td>
+                      <td style={styles.td}>${req.amount.toFixed(2)}</td>
+                      <td style={styles.td}>{new Date(req.requestedAt).toLocaleString()}</td>
+                      <td style={styles.td}>
+                        {req.approved ? (
+                          <span style={styles.badgePaid}>Approved</span>
+                        ) : req.feePaid ? (
+                          <span style={styles.badgePaid}>Paid</span>
+                        ) : (
+                          <span style={styles.badgeUnpaid}>Pending</span>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        {!req.approved && !req.feePaid && (
+                          <button
+                            style={styles.payBtn}
+                            onClick={() => handleApprovePayRequest(req.id)}
+                            disabled={loading}
+                          >
+                            Approve & Mark Paid
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && <div style={styles.loading}>Loading...</div>}
 
