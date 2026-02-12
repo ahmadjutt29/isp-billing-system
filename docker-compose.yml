@@ -5,16 +5,16 @@ services:
     container_name: isp-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ispdb
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - isp-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,12 +33,12 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
-      - ConnectionStrings__DefaultConnection=Server=db;Port=3306;Database=ispdb;User=root;Password=root;
-      - Jwt__SecretKey=SuperSecretKey123456789012345678901234567890
+      - ConnectionStrings__DefaultConnection=Server=db;Port=3306;Database=${DB_NAME};User=root;Password=${MYSQL_ROOT_PASSWORD};
+      - Jwt__SecretKey=${JWT_SECRET}
       - Jwt__Issuer=IspBackend
       - Jwt__Audience=IspFrontend
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     networks:
       - isp-network
     healthcheck:

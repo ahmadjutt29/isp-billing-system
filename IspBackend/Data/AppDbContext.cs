@@ -41,6 +41,11 @@ public class AppDbContext : DbContext
     /// Gets or sets the Fees table.
     /// </summary>
     public DbSet<Fee> Fees => Set<Fee>();
+
+    /// <summary>
+    /// Gets or sets the PayRequests table.
+    /// </summary>
+    public DbSet<PayRequest> PayRequests => Set<PayRequest>();
     #endregion
 
     /// <summary>

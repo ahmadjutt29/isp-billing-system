@@ -15,8 +15,58 @@ namespace IspBackend.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
+
+
 public class FeesController : ControllerBase
 {
+
+
+    /// <summary>
+    /// Submits a payment request for a fee (client-side, requires approval).
+    /// </summary>
+    /// <param name="id">The fee ID.</param>
+    /// <param name="dto">The payment request data.</param>
+    /// <returns>Action result.</returns>
+    [HttpPost("{id}/pay-request")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitPayRequest(int id, [FromBody] DTOs.PayRequestDto dto)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == null)
+            return Unauthorized(new { message = "User not authenticated" });
+
+        var fee = await _feeService.GetFeeByIdAsync(id);
+        if (fee == null)
+            return NotFound(new { message = "Fee not found" });
+
+        // Only owner can submit pay request
+        if (fee.UserId != currentUserId && !IsAdminOrOwner(fee.UserId))
+            return Forbid();
+
+        // Validate
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        // Save pay request
+        using (var scope = HttpContext.RequestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Data.AppDbContext>();
+            var payRequest = new Models.PayRequest
+            {
+                FeeId = id,
+                TransactionId = dto.TransactionId,
+                PayeeName = dto.PayeeName,
+                Amount = dto.Amount,
+                RequestedAt = DateTime.UtcNow,
+                Approved = false
+            };
+            db.PayRequests.Add(payRequest);
+            await db.SaveChangesAsync();
+        }
+        return Ok(new { message = "Payment request submitted for approval" });
+    }
     private readonly IFeeService _feeService;
 
     /// <summary>
